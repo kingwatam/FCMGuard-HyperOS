@@ -29,34 +29,36 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Restore stable CI signing key
-        uses: actions/cache@v4
-        with:
-          path: ci-signing
-          key: fcmguard-stable-ci-signing-v1
-
-      - name: Create stable CI signing key if missing
+      # Upstream generated a throwaway key and kept it in actions/cache. That cache
+      # is per-repository and expires, and when it does the next build signs with a
+      # different key, which Android refuses to install over the previous one. This
+      # fork decodes a keystore held in a repository secret, so the key is stable.
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FCMGUARD_KEYSTORE_BASE64 }}
         run: |
-          mkdir -p ci-signing
-          if [ ! -f ci-signing/fcmguard-debug.keystore ]; then
-            keytool -genkeypair \
-              -keystore ci-signing/fcmguard-debug.keystore \
-              -storepass android \
-              -keypass android \
-              -alias fcmguarddebug \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=FCM Guard Debug,O=ReedGAOOO,C=SG"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Repository secret FCMGUARD_KEYSTORE_BASE64 is not set."
+            exit 1
           fi
+          mkdir -p ci-signing
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > ci-signing/release.keystore
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+      # assembleRelease rather than assembleDebug: a debug build carries
+      # android:debuggable=true, which lets any adb user attach a debugger to an app
+      # that holds WRITE_SETTINGS.
+      - name: Build release APK
+        env:
+          FCMGUARD_KEYSTORE: ${{ github.workspace }}/ci-signing/release.keystore
+          FCMGUARD_STORE_PASSWORD: ${{ secrets.FCMGUARD_STORE_PASSWORD }}
+          FCMGUARD_KEY_ALIAS: ${{ secrets.FCMGUARD_KEY_ALIAS }}
+          FCMGUARD_KEY_PASSWORD: ${{ secrets.FCMGUARD_KEY_PASSWORD }}
+        run: gradle :app:assembleRelease --stacktrace
 
       - name: Read version and prepare release APKs
         id: version
@@ -70,8 +72,14 @@ jobs:
           TAG="v${VERSION}"
           APK_NAME="FCMGuard-HyperOS-${TAG}.apk"
           LATEST_APK_NAME="FCMGuard-HyperOS.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
-          cp app/build/outputs/apk/debug/app-debug.apk "$LATEST_APK_NAME"
+          SRC="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$SRC" ]; then
+            echo "::error::No $SRC. The release build was not signed." >&2
+            ls -R app/build/outputs/apk || true
+            exit 1
+          fi
+          cp "$SRC" "$APK_NAME"
+          cp "$SRC" "$LATEST_APK_NAME"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
@@ -80,7 +88,7 @@ jobs:
       - name: Upload Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FCMGuard-debug-apk
+          name: FCMGuard-release-apk
           path: ${{ steps.version.outputs.apk_name }}
           retention-days: 30
 
@@ -100,6 +108,6 @@ jobs:
           else
             gh release create "$TAG" "$APK_NAME" "$LATEST_APK_NAME" \
               --target "$GITHUB_SHA" \
-              --title "FCM Guard v${VERSION}" \
-              --notes "FCM Guard v${VERSION} for China-ROM HyperOS 3. Download the APK below and install it directly on your phone."
+              --title "FCM Guard ${VERSION} (fork release build)" \
+              --notes "Release build of a personal fork. Install with: adb install --bypass-low-target-sdk-block FCMGuard-HyperOS.apk"
           fi

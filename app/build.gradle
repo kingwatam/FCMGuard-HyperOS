@@ -10,8 +10,8 @@ android {
         applicationId "com.reed.fcmguard"
         minSdk 21
         targetSdk 22
-        versionCode 30
-        versionName "1.5.9"
+        versionCode 31
+        versionName "1.5.9-fork.1"
     }
 
     signingConfigs {
@@ -21,6 +21,18 @@ android {
             keyAlias 'fcmguarddebug'
             keyPassword ('and' + 'roid')
         }
+        // Read from the environment so no keystore or password sits in the repo.
+        // CI decodes the keystore from a repository secret and exports these before
+        // running Gradle. A local build can export the same four variables by hand.
+        release {
+            def ksPath = System.getenv('FCMGUARD_KEYSTORE')
+            if (ksPath) {
+                storeFile file(ksPath)
+                storePassword System.getenv('FCMGUARD_STORE_PASSWORD')
+                keyAlias System.getenv('FCMGUARD_KEY_ALIAS')
+                keyPassword System.getenv('FCMGUARD_KEY_PASSWORD')
+            }
+        }
     }
 
     buildTypes {
@@ -28,7 +40,15 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
+            // Left off on purpose. FcmAppScanner and AutostartStatusReader reach
+            // vendor APIs by reflection and there are no keep rules for them, so R8
+            // would strip the members they look up.
             minifyEnabled false
+            // Without the environment variables this stays unsigned, as upstream is,
+            // rather than failing the build with a missing storeFile.
+            if (System.getenv('FCMGUARD_KEYSTORE')) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
