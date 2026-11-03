@@ -52,6 +52,18 @@ android {
         }
     }
 
+    lint {
+        // Google Play wants targetSdk 33 or higher, but this app targets 22 on
+        // purpose: that is what lets WRITE_SETTINGS write Xiaomi's vendor
+        // Settings.System key. The check is fatal by default, and lintVital runs on
+        // release builds only, so it aborts every release build. Debug builds skip
+        // lintVital, which is why upstream never met it.
+        //
+        // Only this check is disabled. Everything else lintVital looks for still
+        // fails the build.
+        disable 'ExpiredTargetSdkVersion'
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
