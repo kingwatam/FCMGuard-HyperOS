@@ -161,6 +161,10 @@ The PowerKeeper / Greezer investigation and the `MILLET_NO_RESTRICT_APP` repair 
 
 FCM Guard is an independent implementation focused on no Shizuku/root dependency, minimal privileges, event-driven monitoring, and low idle background activity. No source code from HyperOS FCM Fix is copied into this repository.
 
+## Companion tool
+
+The PowerShell script [kingwatam/hyperos-gms-fcm-fix](https://github.com/kingwatam/hyperos-gms-fcm-fix) is the companion PC-side tool for this app. It can do things the app cannot: disable the Greezer GMS limiter (`dumpsys greezer IM GMS disable`), restore the Aurogon allowlist, count freeze events from `dumpsys greezer`, and reverse a repair. Run it when the app lapses — it needs a PC tethered, while the app runs unattended on the phone.
+
 ## Build
 
 GitHub Actions checks responsive layout profiles and builds a signed debug APK. Pushes to `main` publish/update the versioned GitHub Release; feature branches can be validated before release.

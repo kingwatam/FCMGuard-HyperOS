@@ -61,6 +61,7 @@ public class GuardService extends Service {
     private void repair(boolean notifyFailure) {
         SettingsGuard.Result result = SettingsGuard.repair(this);
         if (result.changed) {
+            SettingsGuard.repairPredownloadGate(this);
             FcmReconnect.kick(this);
             if (foreground) refreshNotification(getString(R.string.notification_repaired));
         } else if (!result.success && notifyFailure && foreground) {
@@ -82,6 +83,11 @@ public class GuardService extends Service {
         };
         resolver.registerContentObserver(
                 Settings.System.getUriFor(SettingsGuard.getConfiguredKey(this)),
+                false,
+                observer
+        );
+        resolver.registerContentObserver(
+                Settings.System.getUriFor("com.miui.game.allowlist"),
                 false,
                 observer
         );

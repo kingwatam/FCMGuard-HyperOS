@@ -47,7 +47,7 @@ public final class SettingsGuard {
     public static void saveConfig(Context context, String key, String requiredItem) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
-                .putString("settings_key", safe(key, context.getString(R.string.default_key)))
+                .putString("settings_key", isValidKey(key) ? safe(key, context.getString(R.string.default_key)) : context.getString(R.string.default_key))
                 .putString("required_item", safe(requiredItem, context.getString(R.string.default_required_item)))
                 .apply();
     }
@@ -56,6 +56,16 @@ public final class SettingsGuard {
         if (s == null) return fallback;
         String t = s.trim();
         return t.isEmpty() ? fallback : t;
+    }
+
+    /**
+     * Validate that a settings key looks like a real key: starts with a letter,
+     * contains only letters, digits, underscores and dots, and is not empty.
+     * Prevents the app from being pointed at an arbitrary Settings.System key.
+     */
+    public static boolean isValidKey(String key) {
+        if (key == null || key.isEmpty()) return false;
+        return key.matches("[a-zA-Z][a-zA-Z0-9_.]*");
     }
 
     public static String read(Context context) {
@@ -90,20 +100,21 @@ public final class SettingsGuard {
             return new Result(true, false, current, context.getString(R.string.already_protected));
         }
 
-        LinkedHashSet<String> packages = parse(current);
+        LinkedHashSet<String> packages = parse(current, ',');
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         if (packages.isEmpty()) {
-            packages.addAll(parse(prefs.getString(LAST_GOOD_PREFIX + key, null)));
+            packages.addAll(parse(prefs.getString(LAST_GOOD_PREFIX + key, null), ','));
         }
         if (packages.isEmpty()) {
-            packages.add("com.tencent.mm");
-            packages.add("com.android.vending");
+            return new Result(false, false, current, context.getString(R.string.write_rejected));
         }
         if (required != null && !required.trim().isEmpty()) {
             packages.add(required.trim());
         }
+        // Self-protection: ensure this app itself is not frozen by Greezer.
+        packages.add(context.getPackageName());
 
-        String repaired = join(packages);
+        String repaired = join(packages, ',');
         try {
             boolean ok = Settings.System.putString(context.getContentResolver(), key, repaired);
             if (ok) {
@@ -124,11 +135,34 @@ public final class SettingsGuard {
     private static void rememberIfUseful(Context context, String current) {
         if (current == null || current.trim().isEmpty()) return;
         String key = getConfiguredKey(context);
-        LinkedHashSet<String> packages = parse(current);
+        LinkedHashSet<String> packages = parse(current, ',');
         if (packages.isEmpty()) return;
-        String normalized = join(packages);
+        String normalized = join(packages, ',');
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         saveLastGoodIfChanged(prefs, key, normalized);
+    }
+
+    /**
+     * Repair the predownload gate: append the required package to
+     * Settings.System com.miui.game.allowlist if it is not already present.
+     * Uses underscore separator. Returns true if the write succeeded or the
+     * package was already present.
+     */
+    public static boolean repairPredownloadGate(Context context) {
+        String gateKey = "com.miui.game.allowlist";
+        String required = context.getString(R.string.default_required_item);
+        String current = Settings.System.getString(context.getContentResolver(), gateKey);
+        LinkedHashSet<String> packages = parse(current, '_');
+        if (packages.contains(required)) return true;
+        packages.add(required);
+        // Self-protection on the predownload gate too.
+        packages.add(context.getPackageName());
+        String repaired = join(packages, '_');
+        try {
+            return Settings.System.putString(context.getContentResolver(), gateKey, repaired);
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private static void saveLastGoodIfChanged(SharedPreferences prefs, String key, String value) {
@@ -139,20 +173,20 @@ public final class SettingsGuard {
         }
     }
 
-    private static LinkedHashSet<String> parse(String value) {
+    private static LinkedHashSet<String> parse(String value, char sep) {
         LinkedHashSet<String> out = new LinkedHashSet<>();
         if (value == null) return out;
-        for (String part : value.split(",")) {
+        for (String part : value.split(Character.toString(sep))) {
             String p = part.trim();
             if (!p.isEmpty()) out.add(p);
         }
         return out;
     }
 
-    private static String join(Set<String> items) {
+    private static String join(Set<String> items, char sep) {
         StringBuilder sb = new StringBuilder();
         for (String item : items) {
-            if (sb.length() > 0) sb.append(',');
+            if (sb.length() > 0) sb.append(sep);
             sb.append(item);
         }
         return sb.toString();
