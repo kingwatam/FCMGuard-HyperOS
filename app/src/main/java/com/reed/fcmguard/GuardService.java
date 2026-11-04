@@ -60,8 +60,8 @@ public class GuardService extends Service {
 
     private void repair(boolean notifyFailure) {
         SettingsGuard.Result result = SettingsGuard.repair(this);
-        if (result.changed) {
-            SettingsGuard.repairPredownloadGate(this);
+        boolean predownloadChanged = SettingsGuard.repairPredownloadGate(this);
+        if (result.changed || predownloadChanged) {
             FcmReconnect.kick(this);
             if (foreground) refreshNotification(getString(R.string.notification_repaired));
         } else if (!result.success && notifyFailure && foreground) {
