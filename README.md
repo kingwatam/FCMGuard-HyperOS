@@ -21,6 +21,7 @@
 ## Highlights
 
 - **No root or Shizuku** — uses the user-grantable **Modify system settings** permission instead of root, persistent ADB, Accessibility, VPN, overlay, or device-admin privileges.
+- **Different from the original ReedGAOOO repo** — this fork also writes the second gate (`com.miui.game.allowlist`), refuses to overwrite the list on an empty read, sends a thaw before reconnecting, validates the settings key, checks the boot-receiver action, and protects itself by adding its own package to the lists it maintains. It is release-signed with a stable key so updates install over the top, and it cannot disable the Greezer GMS limiter — that needs the PowerShell companion script.
 - **Finance-app friendly** — keeps the implementation deliberately low-privilege for better compatibility with security-sensitive apps.
 - **Low background power** — exact event-driven monitoring is the main path; the 30-minute fallback is in-process and does not deliberately wake a sleeping phone.
 - **Reconnects only when needed** — FCM/MCS reconnect broadcasts are sent only after a real whitelist repair or a manual request.
@@ -167,11 +168,11 @@ The PowerShell script [kingwatam/hyperos-gms-fcm-fix](https://github.com/kingwat
 
 ## Build
 
-GitHub Actions checks responsive layout profiles and builds a signed debug APK. Pushes to `main` publish/update the versioned GitHub Release; feature branches can be validated before release.
+GitHub Actions checks responsive layout profiles and builds a signed release APK. Pushes to `main` publish/update the versioned GitHub Release; feature branches can be validated before release.
 
 For normal phone installation, use:
 
-**https://github.com/ReedGAOOO/FCMGuard-HyperOS/releases/latest/download/FCMGuard-HyperOS.apk**
+**https://github.com/kingwatam/FCMGuard-HyperOS/releases/latest/download/FCMGuard-HyperOS.apk**
 
 ## License
 
