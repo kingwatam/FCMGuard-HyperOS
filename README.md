@@ -13,9 +13,9 @@
 **Designed for:** China-market Xiaomi / Redmi / POCO phones with Google Play services already installed and working.
 
 <p align="center">
-  <a href="https://github.com/ReedGAOOO/FCMGuard-HyperOS/releases/latest/download/FCMGuard-HyperOS.apk"><strong>Download latest APK</strong></a>
+  <a href="https://github.com/kingwatam/FCMGuard-HyperOS/releases/latest/download/FCMGuard-HyperOS.apk"><strong>Download latest APK</strong></a>
   ·
-  <a href="https://github.com/ReedGAOOO/FCMGuard-HyperOS/releases/latest">Latest release</a>
+  <a href="https://github.com/kingwatam/FCMGuard-HyperOS/releases/latest">Latest release</a>
 </p>
 
 ## Highlights
